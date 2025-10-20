@@ -1,33 +1,38 @@
-name: Deploy Docker Image to ECR and then run ansible playbook after 
+name: Deploy Docker Image to ECR and then run ansible playbook  
 
 on: 
   push: 
     branches: [ main ]
+
+permissions:
+  id-token: write    # Required for OIDC
+  contents: read
   
-jobs: 
-  build: 
-    name: Build Image 
+jobs:
+  build:
     runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+      ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/gha-my-portfolio-iam-role 
 
     steps: 
     - name: Check out code 
       uses: actions/checkout@v3
 
-    - name: Configure AWS credentials
+    - name: Configure AWS credentials (OIDC)
       uses: aws-actions/configure-aws-credentials@v4
       with: 
-        aws-region: us-east-1
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        role-to-assume: ${{ env.ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
 
     - name: Login to Amazon ECR
       id: ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build & push (tag with commit SHA + dev (for user data in asg purpose) )
+    - name: Build & push Docker Image
       env:
         REGISTRY: ${{ steps.ecr.outputs.registry }}
-        REPOSITORY: my-dev-ecr-repo-1                     
+        REPOSITORY: my-portfolio-dev-ecr-repo                    
         IMAGE_TAG: ${{ github.sha }} 
       run: | 
         docker buildx create --use 
@@ -36,29 +41,33 @@ jobs:
         -t "$REGISTRY/$REPOSITORY:dev" \
         --push .
 
-    - name: Start ssh-agent 
-      uses: webfactory/ssh-agent@v0.9.0 
-      with: 
-        ssh-private-key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
-
-    - name: Trust server host key 
-      run: | 
-        mkdir -p ~/.ssh 
-        ssh-keyscan -H "${{ secrets.ANSIBLE_HOST }}" >> ~/.ssh/known_hosts
-
-    - name: Run Ansible Playbook
-      env:
-        IMAGE_TAG: ${{ github.sha }}
-        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-        ANS_VAULT_PASS: ${{ secrets.ANSIBLE_VAULT_PASS }}
-      shell: bash
+    # Retrieve controller connection details from Secrets Manager
+    - name: Fetch Ansible connection info
+      id: fetch
       run: |
-        ssh -o StrictHostKeyChecking=no "${{ secrets.EC2_USER }}@${{ secrets.ANSIBLE_HOST }}" "
-          set -e 
-          export ANS_VAULT_PASS='${ANS_VAULT_PASS}'
-          cd ~/ansible
+        CONTROLLER_HOST=$(aws secretsmanager get-secret-value \
+          --secret-id ansible/controller/host \
+          --query SecretString --output text)
+        CONTROLLER_USER=$(aws secretsmanager get-secret-value \
+          --secret-id ansible/controller/user \
+          --query SecretString --output text)
+        CONTROLLER_KEY=$(aws secretsmanager get-secret-value \
+          --secret-id ansible/controller/ssh_key_priv \
+          --query SecretString --output text)
 
-          ansible-playbook playbooks/deploy.yml \
-          -e @group_vars/all/vault.yml \
-          --vault-password-file <(printf '%s' "$ANS_VAULT_PASS")
+        echo "$CONTROLLER_KEY" > controller.pem
+        chmod 600 controller.pem
+
+        echo "CONTROLLER_HOST=$CONTROLLER_HOST" >> $GITHUB_ENV
+        echo "CONTROLLER_USER=$CONTROLLER_USER" >> $GITHUB_ENV
+
+    # Run playbook remotely
+    - name: Run Ansible Playbook on controller
+      run: |
+        ssh -i controller.pem -o StrictHostKeyChecking=no "$CONTROLLER_USER@$CONTROLLER_HOST" "
+          cd ~/ansible
+          ansible-playbook playbooks/my-portfolio/deploy.yml \
+            -e image_tag=${{ github.sha }} \
+            -e @group_vars/my-portfolio/vault.yml \
+            --vault-password-file ~/ansible/scripts/my-portfolio/secrets_script.sh
         "
