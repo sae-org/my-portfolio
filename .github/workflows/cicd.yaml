@@ -55,7 +55,7 @@ jobs:
           --secret-id ansible/controller/ssh_key_priv \
           --query SecretString --output text)
 
-        echo "$CONTROLLER_KEY" > controller.pem
+        printf '%s' "$CONTROLLER_KEY" > controller.pem
         chmod 600 controller.pem
 
         echo "CONTROLLER_HOST=$CONTROLLER_HOST" >> $GITHUB_ENV
@@ -68,6 +68,6 @@ jobs:
           cd ~/ansible
           ansible-playbook playbooks/my-portfolio/deploy.yml \
             -e image_tag=${{ github.sha }} \
-            -e @group_vars/my-portfolio/vault.yml \
-            --vault-password-file ~/ansible/scripts/my-portfolio/secrets_script.sh
+            -e @group_vars/all/vault.yml \
+            --vault-password-file ~/ansible/scripts/secrets_script.sh
         "
