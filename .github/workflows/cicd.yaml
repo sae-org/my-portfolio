@@ -66,8 +66,8 @@ jobs:
       run: |
         ssh -i controller.pem -o StrictHostKeyChecking=no "$CONTROLLER_USER@$CONTROLLER_HOST" "
           cd ~/ansible
-          ansible-playbook -i inventory/my-portfolio.yml playbooks/my-portfolio.yml \
+          ansible-playbook playbooks/my-portfolio.yml \
             -e image_tag=${{ github.sha }} \
             -e @group_vars/all/vault.yml \
-            --vault-password-file ~/ansible/scripts/secrets_script.sh
+            --vault-password-file ~/ansible/secrets_script.sh
         "
