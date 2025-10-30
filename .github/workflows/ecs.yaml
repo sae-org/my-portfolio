@@ -109,8 +109,3 @@ jobs:
             --service  "$ECS_SERVICE_NAME" \
             --task-definition "${{ steps.register.outputs.NEW_TD_ARN }}"
 
-      - name: Wait for service stability
-        run: |
-          aws ecs wait services-stable \
-            --cluster "$ECS_CLUSTER_NAME" \
-            --services "$ECS_SERVICE_NAME"
