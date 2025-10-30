@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AWS_REGION: us-east-1
-      ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/gha-my-portfolio-iam-role     # OIDC deploy role ARN
+      ROLE_ARN: arn:aws:iam::886687538523:role/gha-my-portfolio-iam-role     # OIDC deploy role ARN
 
     steps:
       - name: Checkout
