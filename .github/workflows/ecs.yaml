@@ -1,3 +1,5 @@
+name: Deploy Docker Image to ECR and then run ecs tasks.
+
 on:
   push:
     branches: [ main ]
