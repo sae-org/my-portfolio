@@ -16,9 +16,11 @@ jobs:
     env:
       AWS_REGION: us-east-1
       ROLE_ARN: arn:aws:iam::886687538523:role/gha-my-portfolio-iam-role     # OIDC deploy role ARN
+      INFRA_REPO: sae-org/terraform-infrastructure
+      INFRA_PATH: dev/us-east-1/ecs
 
     steps:
-      - name: Checkout
+      - name: Checkout app repo
         uses: actions/checkout@v4
 
       - name: Configure AWS credentials (OIDC)
@@ -41,15 +43,65 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build & push Docker image
+        id: buildpush
         env: 
           REGISTRY: ${{ steps.ecr.outputs.registry }}
           REPOSITORY: my-portfolio-dev-ecr-repo  
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build \
-          -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
-          -t $REGISTRY/$REPOSITORY:latest \
-          --push .
+          docker build -t "$REGISTRY/$REPOSITORY:$IMAGE_TAG" -t "$REGISTRY/$REPOSITORY:latest" .
+          docker push "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+          docker push "$REGISTRY/$REPOSITORY:latest"
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Checkout infra repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.INFRA_REPO }}         
+          path: ${{ env.INFRA_PATH }} 
+          ref: main
+
+      # install terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      # run terraform in the folder that contains main.tf/outputs.tf/etc.
+      - name: Terraform init
+        working-directory: ${{ env.INFRA_PATH }}
+        run: terraform init
+
+      # apply ONLY the ECS module, passing the new image tag from the build step
+      - name: Terraform apply (update ECS module)
+        working-directory: ${{ env.INFRA_PATH }}   
+        run: |
+          terraform apply -auto-approve \
+            -var="image_tag=${{ steps.buildpush.outputs.image_tag }}" \
+            -target=module.ecs      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
       - name: Register task definition (inline JSON)
         id: register
