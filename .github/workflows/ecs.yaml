@@ -69,12 +69,12 @@ jobs:
 
       # run terraform in the folder that contains main.tf/outputs.tf/etc.
       - name: Terraform init
-        working-directory: infra-repo/dev/us-east-1
+        working-directory: infra-repo/dev/us-east-1/ecs/my-portfolio
         run: terraform init
 
       # apply ONLY the ECS module, passing the new image tag from the build step
       - name: Terraform apply (update ECS module)
-        working-directory: infra-repo/dev/us-east-1 
+        working-directory: infra-repo/dev/us-east-1/ecs/my-portfolio
         run: |
           terraform apply -auto-approve \
             -var="image_tag=${{ steps.buildpush.outputs.image_tag }}" \
