@@ -58,7 +58,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ env.INFRA_REPO }}         
-          path: ${{ env.INFRA_PATH }} 
+          path: infra-repo
           ref: main
 
       # install terraform
@@ -69,12 +69,12 @@ jobs:
 
       # run terraform in the folder that contains main.tf/outputs.tf/etc.
       - name: Terraform init
-        working-directory: ${{ env.INFRA_PATH }}
+        working-directory: infra-repo/dev/us-east-1
         run: terraform init
 
       # apply ONLY the ECS module, passing the new image tag from the build step
       - name: Terraform apply (update ECS module)
-        working-directory: ${{ env.INFRA_PATH }}   
+        working-directory: infra-repo/dev/us-east-1 
         run: |
           terraform apply -auto-approve \
             -var="image_tag=${{ steps.buildpush.outputs.image_tag }}" \
