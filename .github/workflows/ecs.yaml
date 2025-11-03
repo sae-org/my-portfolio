@@ -67,6 +67,8 @@ jobs:
         with:
           terraform_wrapper: false
 
+      - run: aws sts get-caller-identity
+      
       # run terraform in the folder that contains main.tf/outputs.tf/etc.
       - name: Terraform init
         working-directory: infra-repo/dev/us-east-1/ecs/my-portfolio
