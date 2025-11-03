@@ -17,7 +17,7 @@ jobs:
       AWS_REGION: us-east-1
       ROLE_ARN: arn:aws:iam::886687538523:role/gha-my-portfolio-iam-role     # OIDC deploy role ARN
       INFRA_REPO: sae-org/terraform-infrastructure
-      INFRA_PATH: dev/us-east-1/ecs
+      INFRA_PATH: dev/us-east-1/ecs/my-portfolio
 
     steps:
       - name: Checkout app repo
