@@ -58,7 +58,7 @@ jobs:
         IMAGE_TAG: ${{ github.sha }}
       working-directory: gitops
       run: |
-        ECR_REPO="$REGISTRY/$REPOSITORY"
+        export ECR_REPO="$REGISTRY/$REPOSITORY"
         yq -i '.image.repository = env(ECR_REPO)' my-portfolio-app/values.yaml
         yq -i '.image.tag = env(IMAGE_TAG)' my-portfolio-app/values.yaml
         git config --global user.name "github-actions"
