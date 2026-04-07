@@ -50,14 +50,17 @@ jobs:
         token: ${{ secrets.GITOPS_PAT }}
         path: gitops
 
+    - name: Install yq
+      uses: mikefarah/yq@v4
+
     - name: Update Helm chart and trigger Argo-CD
       env:
-        ECR_REPO: ${{ env.REGISTRY }}/${{ env.REPOSITORY }}
         IMAGE_TAG: ${{ github.sha }}
       working-directory: gitops
       run: |
-        sed -i "s|<ECR_REPO_URI>|$ECR_REPO|" my-portfolio-app/values.yaml
-        sed -i "s|<IMAGE_TAG>|$IMAGE_TAG|" my-portfolio-app/values.yaml
+        ECR_REPO="$REGISTRY/$REPOSITORY"
+        yq -i '.image.repository = env(ECR_REPO)' my-portfolio-app/values.yaml
+        yq -i '.image.tag = env(IMAGE_TAG)' my-portfolio-app/values.yaml
         git config --global user.name "github-actions"
         git config --global user.email "actions@github.com"
         git add my-portfolio-app/values.yaml

@@ -1,18 +1,60 @@
-# Simple static site Dockerfile for DevOps Portfolio
-FROM nginx:alpine
+# ==================================
+# Stage 1: Build React Frontend
+# ==================================
+FROM node:18-alpine AS frontend-build
 
-# Copy index.html (the main webpage file) into the folder where Nginx expects to find web pages.
-COPY public/index.html /usr/share/nginx/html/index.html
+WORKDIR /app
 
-# Copy nginx configuration - replacing Nginx’s default configuration with own custom one. This file tells Nginx how to behave
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy frontend package files
+COPY package*.json ./
+COPY tsconfig*.json ./
+COPY vite.config.ts ./
+COPY components.json ./
+COPY tailwind.config.ts ./
+COPY postcss.config.js ./
+COPY eslint.config.js ./
 
-# Add healthcheck
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://127.0.0.1 || exit 1
+# Install frontend dependencies
+RUN npm ci
 
-# Port 80 is the standard “door” for web traffic (HTTP). This tells Docker, “Hey, open this door so people can reach the website.”
-EXPOSE 80
+# Copy frontend source code
+COPY src/ ./src/
+COPY public/ ./public/
+COPY index.html ./
 
-# When the container starts, this command runs Nginx and keeps it running in the foreground (so Docker knows the container is alive).
-CMD ["nginx", "-g", "daemon off;"]
+# Build the React app for production
+RUN npm run build
+
+# ==================================
+# Stage 2: Production Node.js Server
+# ==================================
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy backend package files
+COPY backend/package*.json ./
+
+# Install only production dependencies for backend
+RUN npm ci --production
+
+# Copy backend source code
+COPY backend/*.js ./
+
+# Copy the built React app from Stage 1
+COPY --from=frontend-build /app/dist ./public
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=8080
+
+# Health check - checks if the server is responding
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost:8080/api/health || exit 1
+
+# Expose port 8080 (ECS will map this)
+EXPOSE 8080
+
+# Start the Node.js backend server
+# The backend will serve both API and static frontend files
+CMD ["node", "server.js"]
