@@ -50,7 +50,7 @@ jobs:
         token: ${{ secrets.GITOPS_PAT }}
         path: gitops
 
-    - name: Update Helm chart and trigger Argo CD
+    - name: Update Helm chart and trigger Argo-CD
       env:
         ECR_REPO: ${{ env.REGISTRY }}/${{ env.REPOSITORY }}
         IMAGE_TAG: ${{ github.sha }}
